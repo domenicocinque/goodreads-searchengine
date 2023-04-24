@@ -97,17 +97,18 @@ def scrape_book_data(book_id: str, html_file: Path) -> Book:
 
 class BookDataset:
     NUM_PAGES = 3
-    book_list_file = "book_list.csv"
-    raw_html_dir = "raw_html"
-    book_data_file = "book_data.csv"
 
-    def __init__(self, data_dir: Path):
+    def __init__(
+        self,
+        data_dir: Path,
+        raw_html_dir: str,
+        book_list_file: str,
+        book_data_file: str,
+    ):
         self.data_dir = data_dir
-        self.raw_html_dir = self.data_dir / self.raw_html_dir
-        self.book_list_file = self.data_dir / self.book_list_file
-        self.book_data_file = self.data_dir / self.book_data_file
-
-        self._setup()
+        self.raw_html_dir = self.data_dir / raw_html_dir
+        self.book_list_file = self.data_dir / book_list_file
+        self.book_data_file = self.data_dir / book_data_file
 
     def download_data_list(self) -> None:
         # Check if the book list already exists
@@ -155,7 +156,7 @@ class BookDataset:
             book_data_df.to_csv(self.book_data_file, index=False)
         logger.info("Book data scraped.")
 
-    def _setup(self) -> None:
+    def setup(self) -> None:
         self.download()
         self.scrape()
         logger.info("Setup complete")
