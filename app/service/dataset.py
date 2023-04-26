@@ -1,18 +1,17 @@
-import logging
+import random
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Optional
 
-import nltk
-import numpy as np
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from scipy.sparse import load_npz, save_npz
 from tqdm import tqdm
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def get_book_list(max_page: int) -> pd.DataFrame:
@@ -27,14 +26,20 @@ def get_book_list(max_page: int) -> pd.DataFrame:
             book_list["id"].append(book.find("a", {"class": "bookTitle"})["href"].split("/")[-1])
             book_list["title"].append(book.find("a", {"class": "bookTitle"}).text.strip())
             book_list["author"].append(book.find("a", {"class": "authorName"}).text.strip())
-        # Sleep for 2 second to avoid being blocked
-        time.sleep(2)
+        time.sleep(random.randint(1, 4))
     return pd.DataFrame(book_list)
 
 
 def get_title(soup: BeautifulSoup) -> str:
     if soup.find("h1", {"class": "Text Text__title1"}):
         return soup.find("h1", {"class": "Text Text__title1"}).text.strip()
+    else:
+        return None
+
+
+def get_author(soup: BeautifulSoup) -> str:
+    if soup.find("span", {"class": "ContributorLink__name"}):
+        return soup.find("span", {"class": "ContributorLink__name"}).text.strip()
     else:
         return None
 
@@ -83,7 +88,11 @@ def get_review_count(soup: BeautifulSoup) -> int:
 class Book:
     id: str
     title: str
-    description: str
+    author: str
+    rating: Optional[float]
+    rating_count: Optional[int]
+    review_count: Optional[int]
+    description: Optional[str]
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -92,48 +101,65 @@ class Book:
 def scrape_book_data(book_id: str, html_file: Path) -> Book:
     with open(html_file, encoding="utf-8") as f:
         soup = BeautifulSoup(f.read(), "html.parser")
-    return Book(id=book_id, title=get_title(soup), description=get_description(soup))
+    return Book(
+        id=book_id,
+        title=get_title(soup),
+        description=get_description(soup),
+        author=get_author(soup),
+        rating=get_rating(soup),
+        rating_count=get_rating_count(soup),
+        review_count=get_review_count(soup),
+    )
 
 
 class BookDataset:
-    NUM_PAGES = 3
-
     def __init__(
         self,
+        num_pages: int,
         data_dir: Path,
         raw_html_dir: str,
         book_list_file: str,
         book_data_file: str,
     ):
+        self.num_pages = num_pages
         self.data_dir = data_dir
         self.raw_html_dir = self.data_dir / raw_html_dir
         self.book_list_file = self.data_dir / book_list_file
         self.book_data_file = self.data_dir / book_data_file
 
     def download_data_list(self) -> None:
-        # Check if the book list already exists
-        if not self.book_list_file.exists():
-            logger.info("Downloading book list...")
-            book_list = get_book_list(self.NUM_PAGES)
-            book_list.to_csv(self.book_list_file, index=False)
+        """Download the list of books from the website."""
+        logger.info("Downloading book list...")
+        book_list = get_book_list(self.num_pages)
+        book_list.to_csv(self.book_list_file, index=False)
+
+    def download_page(self, id: str, force: bool = False) -> None:
+        """Download the webpage of a single book."""
+        # Check if the webpage has already been downloaded
+        html_file = self.raw_html_dir / (id + ".html")
+        if html_file.exists() and not force:
+            return
+        try:
+            response = requests.get("https://www.goodreads.com/book/show/" + id, timeout=5)
+        except requests.exceptions.Timeout:
+            logger.warning(f"Request for book {id} timed out. Skipping...")
+            return
+        with open(html_file, "w", encoding="utf-8") as f:
+            f.write(response.text)
+        # Sleep for random seconds to avoid being blocked
+        time.sleep(random.randint(1, 4))
 
     def download_raw_html(self) -> None:
-        # Check if the webpages have already been downloaded
+        """Download the webpages of all books in the book list."""
+        logger.info("Downloading webpages...")
+        book_list = self.load_data_list()
         if not self.raw_html_dir.exists():
-            logger.info("Downloading webpages...")
             self.raw_html_dir.mkdir()
-            """Download book webpages."""
-            book_list = pd.read_csv(self.book_list_file)
-            with tqdm(total=len(book_list)) as pbar:
-                for index, row in book_list.iterrows():
-                    response = requests.get(
-                        "https://www.goodreads.com/book/show/" + row["id"], timeout=5
-                    )
-                    with open(self.raw_html_dir + row["id"] + ".html", "w", encoding="utf-8") as f:
-                        f.write(response.text)
-                    # Sleep for 2 second to avoid being blocked
-                    time.sleep(2)
-                    pbar.update(1)
+
+        with tqdm(total=len(book_list)) as pbar:
+            for index, row in book_list.iterrows():
+                self.download_page(row["id"])
+                pbar.update(1)
 
     def download(self) -> None:
         self.download_data_list()
@@ -141,19 +167,17 @@ class BookDataset:
         logger.info("Data downloaded.")
 
     def scrape(self) -> None:
-        # Check if the book data has been scraped
-        if not self.book_data_file.exists():
-            logger.info("Scraping book data...")
-            book_list = pd.read_csv(self.book_list_file)
-            book_data_list = []
-            with tqdm(total=len(book_list)) as pbar:
-                for index, row in book_list.iterrows():
-                    html_file = self.raw_html_dir / (row["id"] + ".html")
-                    if html_file.exists():
-                        book_data_list.append(scrape_book_data(row["id"], html_file))
-                    pbar.update(1)
-            book_data_df = pd.DataFrame(book_data_list)
-            book_data_df.to_csv(self.book_data_file, index=False)
+        logger.info("Scraping book data...")
+        book_list = self.load_data_list()
+        book_data = []
+        with tqdm(total=len(book_list)) as pbar:
+            for index, row in book_list.iterrows():
+                html_file = self.raw_html_dir / (row["id"] + ".html")
+                if html_file.exists():
+                    book_data.append(scrape_book_data(row["id"], html_file))
+                pbar.update(1)
+        book_data_df = pd.DataFrame(book_data)
+        book_data_df.to_csv(self.book_data_file, index=False)
         logger.info("Book data scraped.")
 
     def setup(self) -> None:
@@ -161,5 +185,33 @@ class BookDataset:
         self.scrape()
         logger.info("Setup complete")
 
-    def load_dataset(self) -> pd.DataFrame:
-        return pd.read_csv(self.book_data_file)
+    def fix(self) -> None:
+        """Fix the corrupted rows in the dataset."""
+        book_list = self.load_data_list()
+
+        corrupted_rows = book_list[book_list["description"].isnull()]
+        count_corrupted_rows = len(corrupted_rows)
+        if count_corrupted_rows == 0:
+            logger.info("No corrupted rows found.")
+        else:
+            logger.info(f"Trying to fix {count_corrupted_rows} corrupted rows...")
+            count_fixed_rows = 0
+            for index, row in corrupted_rows.iterrows():
+                # Download the page again
+                self.download_page(row["id"], force=True)
+                html_file = self.raw_html_dir / (row["id"] + ".html")
+                book_data = scrape_book_data(row["id"], html_file)
+                if book_data.description is not None and book_data.title is not None:
+                    book_list.loc[index, "title"] = book_data.title
+                    book_list.loc[index, "description"] = book_data.description
+                    count_fixed_rows += 1
+                    logger.info(f"Fixed book_id = {row['id']}")
+                else:
+                    logger.info(f"Could not fix book_id: {row['id']}")
+            logger.info(
+                f"Fixed {count_fixed_rows/count_corrupted_rows*100:.2f}% of corrupted rows."
+            )
+            book_list.to_csv(self.book_data_file, index=False)
+
+    def load_data_list(self) -> pd.DataFrame:
+        return pd.read_csv(self.book_list_file)

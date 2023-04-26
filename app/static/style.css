@@ -6,7 +6,7 @@ body {
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background-color: #394867
+    background-color: #FDEEDC
 }
 
 .container {
@@ -23,8 +23,24 @@ h1 {
     font-family: Palatino, serif;
     text-align: center;
     margin-bottom: 2rem;
-    color: #212A3E;
+    color: #000000;
 }
+
+h3 {
+    font-family: Palatino, serif;
+    text-align: left;
+    margin-bottom: 0rem;
+    color: #000000cb;
+}
+
+hr {
+    display: block;
+    height: 1px;
+    border: 0;
+    border-top: 1px solid #ccc;
+    margin: 1em 0;
+    padding: 0;
+  }
 
 form {
     display: flex;

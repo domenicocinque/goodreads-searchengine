@@ -14,16 +14,18 @@
             <input type="text" name="query" placeholder="Enter a book title or author">
             <input type="submit" value="Search">
         </form>
-        <div id="results">
-            {% if results %}
-                <h2>Results</h2>
-                <ul>
-                    {% for result in results %}
-                        <li>{{ result.title }} </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
+    <!-- gray hline here -->
+    <hr>
+    <!-- For each result show title on top, authors with a smaller font under the title
+         a gray line is present between each result -->
+    {% for result in results %}
+        <div class="result">
+            <span><strong>{{ result.title }}</strong> </span> <br>
+            <span class="author">by {{ result.author }}</span>
+            <hr>
         </div>
+    {% endfor %}
+
     </div>
 </body>
 
