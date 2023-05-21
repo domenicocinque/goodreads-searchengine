@@ -1,6 +1,5 @@
-import logging
 from pathlib import Path
-from typing import List, Optional
+from logging import getLogger
 
 import pandas as pd
 from whoosh.analysis import StemmingAnalyzer
@@ -8,11 +7,9 @@ from whoosh.fields import ID, NUMERIC, TEXT, Schema
 from whoosh.index import create_in, open_dir
 from whoosh.qparser import QueryParser
 
-from app.logger import get_logger
-from app.service.dataset import Book
-from config import INDEX_DIR
+from app.core import Book
 
-logger = get_logger(__name__)
+logger = getLogger(__name__)
 
 
 class Indexer:
@@ -30,16 +27,25 @@ class Indexer:
         description=TEXT(stored=True, analyzer=StemmingAnalyzer()),
     )
 
-    def __init__(self) -> None:
+    def __init__(self, index_dir) -> None:
         self.index = None
-        self.path = None
+        self.index_dir = index_dir
 
-    def create_index(self, index_dir: Path) -> None:
+    def create_index(self) -> None:
         """Creates a new index."""
-        logger.info(f"Creating index in {index_dir}")
-        self.index = create_in(index_dir, self.schema)
+        logger.info(f"Creating new index in {self.index_dir}")
+        self.index = create_in(self.index_dir, self.schema)
 
-    def index_dataframe(self, df: pd.DataFrame) -> None:
+    def clear_index(self) -> None:
+        """Clears the index directory."""
+        logger.info(f"Clearing index directory {self.index_dir}")
+        for file in self.index_dir.iterdir():
+            file.unlink()
+    
+    def index_dataframe(self, data_file: Path) -> None:
+        """Indexes the data from the given file."""
+        logger.info(f"Indexing data from {data_file}")
+        df = pd.read_csv(data_file)
         with self.index.writer() as writer:
             for _, row in df.iterrows():
                 if not pd.isna(row["description"]):
@@ -53,17 +59,20 @@ class Indexer:
                         description=row["description"],
                     )
 
-    def clear_index(self, index_dir: Path) -> None:
-        """Clears the index directory."""
-        for file in index_dir.iterdir():
-            file.unlink()
+    def setup(self, data_file: Path) -> None:
+        self.clear_index()
+        self.create_index()
+        self.index_dataframe(data_file=data_file)
 
 
 class Searcher:
+    """
+    A wrapper class for the Whoosh searcher.
+    """
     def __init__(self, indexer: Indexer):
         self.indexer = indexer
 
-    def search(self, query: str, limit: int = 5) -> List[Book]:
+    def search(self, query: str, limit: int = 5) -> list[Book]:
         with self.indexer.index.searcher() as searcher:
             # TODO: Extend query parser to search in multiple fields
             query_parser = QueryParser("description", schema=self.indexer.index.schema)
@@ -73,28 +82,31 @@ class Searcher:
 
 
 class SearchEngine:
+    """
+    A wrapper class for the indexer and searcher.
+    """
     def __init__(self, indexer: Indexer, searcher: Searcher):
         self.indexer = indexer
         self.searcher = searcher
 
-    def search(self, query: str, limit: int = 5) -> List[Book]:
+    def search(self, query: str, limit: int = 5) -> list[Book]:
         return self.searcher.search(query, limit=limit)
 
 
-def get_search_engine(index_dir: Path = INDEX_DIR) -> SearchEngine:
-    indexer = Indexer()
+def get_indexer(index_dir: Path) -> Indexer:
+    """
+    Returns an indexer object if the index directory exists.
+    Supposed to be run after the index is set up.
+    """
+    indexer = Indexer(index_dir)
     if index_dir.exists():
         indexer.index = open_dir(index_dir)
     else:
-        indexer.create_index(index_dir)
+        raise FileNotFoundError(f"Index directory {index_dir} does not exist.")
+    return indexer
+    
+def get_search_engine(index_dir: Path) -> SearchEngine:
+    indexer = get_indexer(index_dir)
     searcher = Searcher(indexer)
     return SearchEngine(indexer, searcher)
 
-
-def get_indexer(index_dir: Path) -> Indexer:
-    indexer = Indexer()
-    if index_dir.exists():
-        indexer.index = open_dir(index_dir)
-    else:
-        indexer.create_index(index_dir)
-    return indexer

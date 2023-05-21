@@ -6,6 +6,5 @@ This is a search engine for GoodReads books, it is made with Python (feat. Flask
 
 1. Clone the repository
 2. Install the requirements with `pip install -r requirements.txt`
-3. Download the dataset with `python main.py --setup`
-4. Create the index with `python main.py --index`
-5. Run the server with `python main.py --run`
+3. Setup the dataset with `python setup.py`
+4. Run the server with `python main.py --run`
