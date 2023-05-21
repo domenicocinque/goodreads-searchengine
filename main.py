@@ -1,6 +1,8 @@
 from argparse import ArgumentParser
+
 from app import create_app
-from config import config 
+from config import config
+
 
 def main(args):
     if args.run:

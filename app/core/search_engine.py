@@ -1,5 +1,5 @@
-from pathlib import Path
 from logging import getLogger
+from pathlib import Path
 
 import pandas as pd
 from whoosh.analysis import StemmingAnalyzer
@@ -41,7 +41,7 @@ class Indexer:
         logger.info(f"Clearing index directory {self.index_dir}")
         for file in self.index_dir.iterdir():
             file.unlink()
-    
+
     def index_dataframe(self, data_file: Path) -> None:
         """Indexes the data from the given file."""
         logger.info(f"Indexing data from {data_file}")
@@ -66,9 +66,8 @@ class Indexer:
 
 
 class Searcher:
-    """
-    A wrapper class for the Whoosh searcher.
-    """
+    """A wrapper class for the Whoosh searcher."""
+
     def __init__(self, indexer: Indexer):
         self.indexer = indexer
 
@@ -82,9 +81,8 @@ class Searcher:
 
 
 class SearchEngine:
-    """
-    A wrapper class for the indexer and searcher.
-    """
+    """A wrapper class for the indexer and searcher."""
+
     def __init__(self, indexer: Indexer, searcher: Searcher):
         self.indexer = indexer
         self.searcher = searcher
@@ -94,8 +92,8 @@ class SearchEngine:
 
 
 def get_indexer(index_dir: Path) -> Indexer:
-    """
-    Returns an indexer object if the index directory exists.
+    """Returns an indexer object if the index directory exists.
+
     Supposed to be run after the index is set up.
     """
     indexer = Indexer(index_dir)
@@ -104,9 +102,9 @@ def get_indexer(index_dir: Path) -> Indexer:
     else:
         raise FileNotFoundError(f"Index directory {index_dir} does not exist.")
     return indexer
-    
+
+
 def get_search_engine(index_dir: Path) -> SearchEngine:
     indexer = get_indexer(index_dir)
     searcher = Searcher(indexer)
     return SearchEngine(indexer, searcher)
-

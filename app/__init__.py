@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, Blueprint, current_app
+from flask import Blueprint, Flask, current_app, render_template, request
+
 from app.core import get_search_engine
 
 # Define the main blueprint
-main = Blueprint('main', __name__)
+main = Blueprint("main", __name__)
+
 
 # Define your route within the blueprint
 @main.route("/", methods=["GET", "POST"])
@@ -14,7 +16,7 @@ def index():
         se = get_search_engine(current_app.config.get("INDEX_DIR"))
         results = se.search(query=query)
         return render_template("index.html", results=results)
-    
+
     return render_template("index.html")
 
 

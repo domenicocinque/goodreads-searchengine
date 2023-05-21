@@ -1,16 +1,16 @@
-from pathlib import Path
 from abc import ABC, abstractmethod
 from logging import getLogger
+from pathlib import Path
 
 import pandas as pd
+from annoy import AnnoyIndex
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import ID, NUMERIC, TEXT, Schema
 from whoosh.index import create_in, open_dir
 from whoosh.qparser import QueryParser
 
-from annoy import AnnoyIndex
-
 logger = getLogger(__name__)
+
 
 class BaseIndexer(ABC):
     def __init__(self):
@@ -69,14 +69,12 @@ class WhooshIndexer(BaseIndexer):
             file.unlink()
 
 
-
 class AnnoyIndexer(BaseIndexer):
     def __init__(self):
         super().__init__()
 
     def create_index(self, index_dir: Path) -> None:
         """Creates a new index."""
-        DIM = 768 # TODO: Fix this
+        DIM = 768  # TODO: Fix this
         logger.info(f"Creating index in {index_dir}")
-        self.index = AnnoyIndex(DIM, 'angular')
-        
+        self.index = AnnoyIndex(DIM, "angular")

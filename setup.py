@@ -6,17 +6,18 @@ from app.core.search_engine import Indexer
 
 
 def setup_data(force_redownload: bool = False):
-    """Performs the data setup process"""
+    """Performs the data setup process."""
     print("Starting data setup.")
     dataset = BookDatasetBuilder(
         data_dir=config.DATA_DIR,
         book_list_file=config.BOOK_LIST_FILENAME,
         html_dirname=config.RAW_HTML_DIR,
         book_data_file=config.BOOK_DATA_FILENAME,
-        max_page=config.MAX_NUM_PAGES
+        max_page=config.MAX_NUM_PAGES,
     )
     dataset.setup(force_redownload=force_redownload)
     print("Data setup completed.")
+
 
 def setup_index():
     """Clears the index directory and creates a new index."""
@@ -35,6 +36,7 @@ def setup_index():
     indexer.setup(data_file=data_file)
     print("Indexing completed.")
 
+
 def setup(force_redownload: bool = False):
     """Performs the whole setup process which includes:
 
@@ -45,13 +47,14 @@ def setup(force_redownload: bool = False):
     - building the search index
 
     Args:
-        force_redownload: If True, the html files will be redownloaded. 
+        force_redownload: If True, the html files will be redownloaded.
     """
 
     print("Starting setup.")
     setup_data(force_redownload)
     setup_index()
     print("Setup completed.")
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()

@@ -1,5 +1,6 @@
-from pathlib import Path
 import logging
+from pathlib import Path
+
 
 class Config:
     ROOT_DIR = Path(__file__).resolve().parent
@@ -26,7 +27,6 @@ class Config:
         format="%(name)s | %(levelname)-8s | %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
     )
-
 
 
 # The only config is a debug config for now
