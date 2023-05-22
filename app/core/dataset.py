@@ -128,7 +128,7 @@ class BookDatasetBuilder:
                 pbar.update(1)
 
     def download(self, force: bool = False) -> None:
-        # self.download_book_list()
+        self.download_book_list()
         self.download_all_html(force=force)
         logger.info("Data downloaded.")
 

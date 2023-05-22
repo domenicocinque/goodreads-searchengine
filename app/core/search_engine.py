@@ -20,6 +20,7 @@ class Indexer:
     schema = Schema(
         id=ID(stored=True),
         title=TEXT(stored=True),
+        url=TEXT(stored=True),
         author=TEXT(stored=True),
         rating=NUMERIC(stored=True),
         rating_count=NUMERIC(stored=True),
@@ -51,6 +52,7 @@ class Indexer:
                 if not pd.isna(row["description"]):
                     writer.add_document(
                         id=str(row["id"]),
+                        url=row["url"],
                         title=row["title"],
                         author=row["author"],
                         rating=row["rating"],
