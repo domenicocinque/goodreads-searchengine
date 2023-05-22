@@ -13,24 +13,20 @@ logger = getLogger(__name__)
 
 
 class BaseIndexer(ABC):
-    def __init__(self):
+    def __init__(self, index_dir: Path):
         self.index = None
-        self.path = None
+        self.index_dir = None
 
     @abstractmethod
-    def create_index(self, index_dir: Path) -> None:
-        pass
-
-    @abstractmethod
-    def index_dataframe(self, df: pd.DataFrame) -> None:
-        pass
-
-    @abstractmethod
-    def clear_index(self, index_dir: Path) -> None:
+    def setup(self, data_file: Path) -> None:
         pass
 
 
-class WhooshIndexer(BaseIndexer):
+class Indexer(BaseIndexer):
+    # TODO: Probably it is better to store only
+    # the fields that are needed for the search
+    # while the rest of the data can be stored in a separate file
+    # and loaded when needed.
     schema = Schema(
         id=ID(stored=True),
         title=TEXT(stored=True),
@@ -38,18 +34,27 @@ class WhooshIndexer(BaseIndexer):
         rating=NUMERIC(stored=True),
         rating_count=NUMERIC(stored=True),
         review_count=NUMERIC(stored=True),
-        description=TEXT(stored=True),
+        description=TEXT(stored=True, analyzer=StemmingAnalyzer()),
     )
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, index_dir: Path) -> None:
+        super().__init__(index_dir)
 
-    def create_index(self, index_dir: Path) -> None:
+    def create_index(self) -> None:
         """Creates a new index."""
-        logger.info(f"Creating index in {index_dir}")
-        self.index = create_in(index_dir, self.schema)
+        logger.info(f"Creating new index in {self.index_dir}")
+        self.index = create_in(self.index_dir, self.schema)
 
-    def index_dataframe(self, df: pd.DataFrame) -> None:
+    def clear_index(self) -> None:
+        """Clears the index directory."""
+        logger.info(f"Clearing index directory {self.index_dir}")
+        for file in self.index_dir.iterdir():
+            file.unlink()
+
+    def index_dataframe(self, data_file: Path) -> None:
+        """Indexes the data from the given file."""
+        logger.info(f"Indexing data from {data_file}")
+        df = pd.read_csv(data_file)
         with self.index.writer() as writer:
             for _, row in df.iterrows():
                 if not pd.isna(row["description"]):
@@ -63,18 +68,32 @@ class WhooshIndexer(BaseIndexer):
                         description=row["description"],
                     )
 
-    def clear_index(self, index_dir: Path) -> None:
-        """Clears the index directory."""
-        for file in index_dir.iterdir():
-            file.unlink()
+    def setup(self, data_file: Path) -> None:
+        self.clear_index()
+        self.create_index()
+        self.index_dataframe(data_file=data_file)
 
 
 class AnnoyIndexer(BaseIndexer):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, index_dir: Path) -> None:
+        super().__init__(index_dir)
+        self.index = None
+        self.index_dir = index_dir
 
-    def create_index(self, index_dir: Path) -> None:
-        """Creates a new index."""
-        DIM = 768  # TODO: Fix this
-        logger.info(f"Creating index in {index_dir}")
-        self.index = AnnoyIndex(DIM, "angular")
+    def create_index(self, data_file: Path, n_trees: int = 100) -> None:
+        logger.info(f"Creating new index in {self.index_dir}")
+        df = pd.read_csv(data_file)
+        self.index = AnnoyIndex(128, "angular")
+        for _, row in df.iterrows():
+            if not pd.isna(row["description"]):
+                print(row["id"])
+                self.index.add_item(row["id"], row["description"])
+        self.index.build(n_trees)
+
+    def setup(self, data_file: Path) -> None:
+        self.create_index(data_file=data_file)
+
+
+if __name__ == "__main__":
+    indexer = AnnoyIndexer(Path("index"))
+    indexer.setup(Path("data/books.csv"))

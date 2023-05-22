@@ -1,8 +1,8 @@
 from argparse import ArgumentParser
 
-import config
-from app.core import BookDatasetBuilder
+from app.core.dataset import BookDatasetBuilder
 from app.core.search_engine import Indexer
+from config import config
 
 
 def setup_data(force_redownload: bool = False):
@@ -62,6 +62,8 @@ if __name__ == "__main__":
         "--force-redownload",
         action="store_true",
         help="Force redownload of the book list and html files.",
+        default=False,
     )
     args = parser.parse_args()
+    print(args)
     setup(force_redownload=args.force_redownload)

@@ -1,6 +1,6 @@
 from flask import Blueprint, Flask, current_app, render_template, request
 
-from app.core import get_search_engine
+from app.core.search_engine import get_search_engine
 
 # Define the main blueprint
 main = Blueprint("main", __name__)

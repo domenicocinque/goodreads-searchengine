@@ -2,10 +2,10 @@ from logging import getLogger
 from pathlib import Path
 
 import pandas as pd
-from whoosh.analysis import StemmingAnalyzer
-from whoosh.fields import ID, NUMERIC, TEXT, Schema
-from whoosh.index import create_in, open_dir
-from whoosh.qparser import QueryParser
+from whoosh.analysis import StemmingAnalyzer  # type: ignore
+from whoosh.fields import ID, NUMERIC, TEXT, Schema  # type: ignore
+from whoosh.index import create_in, open_dir  # type: ignore
+from whoosh.qparser import QueryParser  # type: ignore
 
 from app.core import Book
 
@@ -71,24 +71,13 @@ class Searcher:
     def __init__(self, indexer: Indexer):
         self.indexer = indexer
 
-    def search(self, query: str, limit: int = 5) -> list[Book]:
+    def search(self, query: str, limit: int = 5) -> list:
         with self.indexer.index.searcher() as searcher:
             # TODO: Extend query parser to search in multiple fields
             query_parser = QueryParser("description", schema=self.indexer.index.schema)
             query = query_parser.parse(query)
             results = searcher.search(query, limit=limit)
             return [Book(**result) for result in results]
-
-
-class SearchEngine:
-    """A wrapper class for the indexer and searcher."""
-
-    def __init__(self, indexer: Indexer, searcher: Searcher):
-        self.indexer = indexer
-        self.searcher = searcher
-
-    def search(self, query: str, limit: int = 5) -> list[Book]:
-        return self.searcher.search(query, limit=limit)
 
 
 def get_indexer(index_dir: Path) -> Indexer:
@@ -104,7 +93,7 @@ def get_indexer(index_dir: Path) -> Indexer:
     return indexer
 
 
-def get_search_engine(index_dir: Path) -> SearchEngine:
+def get_search_engine(index_dir: Path) -> Searcher:
     indexer = get_indexer(index_dir)
     searcher = Searcher(indexer)
-    return SearchEngine(indexer, searcher)
+    return searcher
