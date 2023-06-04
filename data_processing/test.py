@@ -44,11 +44,45 @@ async def async_get_book_list(limit: int) -> list[tuple[int, str]]:
     return book_list
 
 
-if __name__ == "__main__":
-    perf = perf_counter()
-    book_list = sync_get_book_list(10)
-    print(f"Time taken (sync): {perf_counter() - perf}")
+def scrape_book_data(soup: BeautifulSoup) -> dict:
+    try:
+        title = soup.find("h1").text
+    except AttributeError:
+        title = None
+    try:
+        description = soup.find("div", {"id": "product_description"}).find_next("p").text
+    except AttributeError:
+        description = None
 
-    perf = perf_counter()
-    asyncio.run(async_get_book_list(10))
-    print(f"Time taken (async): {perf_counter() - perf}")
+    return dict(
+        title=title,
+        description=description,
+    )
+
+
+async def get_book_data(session: httpx.AsyncClient, url_postfix: str) -> dict:
+    book_url = "https://books.toscrape.com/catalogue/" + url_postfix
+
+    print(f"Scraping {book_url}")
+    response = await session.get(book_url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    book_data = scrape_book_data(soup)
+    book_data["url"] = book_url
+    return book_data
+
+
+async def scrape(book_list: list[tuple[int, str]]) -> list[dict]:
+    async with httpx.AsyncClient() as session:
+        tasks = [get_book_data(session, book) for book in book_list]
+        return await asyncio.gather(*tasks)
+
+
+if __name__ == "__main__":
+    # perf = perf_counter()
+    # book_list = sync_get_book_list(10)
+    # print(f"Time taken (sync): {perf_counter() - perf}")
+
+    book_list = asyncio.run(async_get_book_list(2))
+
+    result = asyncio.run(scrape(book_list))
+    print(result)
