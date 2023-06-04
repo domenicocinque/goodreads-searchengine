@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 
-from app.core.dataset import BookDatasetBuilder
+from spider.dataset import BookDatasetBuilder
+
 from app.core.search_engine import Indexer
 from config import config
 

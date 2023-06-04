@@ -11,9 +11,10 @@ main = Blueprint("main", __name__)
 def index():
     if request.method == "POST":
         query = request.form["query"]
+        search_engine = request.form["search_engine"]
 
         # Make sure you import or define get_search_engine somewhere
-        se = get_search_engine(current_app.config.get("INDEX_DIR"))
+        se = get_search_engine(current_app.config.get("INDEX_DIR"), search_engine)
         results = se.search(query=query)
         return render_template("index.html", results=results)
 

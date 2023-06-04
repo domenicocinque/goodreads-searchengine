@@ -8,10 +8,10 @@ from pathlib import Path
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from spider.scrape import scrape_book_data
 from tqdm import tqdm
 
 from app.core import BOOK_LIST_URL, BOOK_PAGE_URL, Book
-from app.core.scrape import scrape_book_data
 
 logger = getLogger(__name__)
 
