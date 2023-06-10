@@ -13,6 +13,7 @@ from rich import print
 
 logger = logging.getLogger("Scraping")
 
+MAX_RETRIES = 5
 BOOK_PAGE_URL = "https://www.goodreads.com/"
 BOOK_LIST_URL = "https://www.goodreads.com/list/show/1.Best_Books_Ever?page="
 DATA_PATH = Path(__file__).parent.parent / "data" / "books.json"
@@ -74,24 +75,22 @@ def get_book_urls(limit: int) -> list[str]:
 
 
 async def get_book_data(session: httpx.Client, url: str) -> Book:
-    try:
-        response = await session.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
-        return Book(
-            id=int(re.search(r"\d+", url).group()),
-            title=get_title(soup),
-            author=get_author(soup),
-            rating=get_rating(soup),
-            rating_count=get_rating_count(soup),
-            review_count=get_review_count(soup),
-            description=get_description(soup),
-            url=url,
-        )
-    except httpx.ReadTimeout as e:
-        print(f"Timeout while parsing book {url}: {str(e)}")
-    except AttributeError as e:
-        print(f"Error parsing book {url}: {str(e)}")
-
+    for _ in range(MAX_RETRIES):
+        try:
+            response = await session.get(url, timeout=10)
+            soup = BeautifulSoup(response.text, "html.parser")
+            return Book(
+                id=int(re.search(r"\d+", url).group()),
+                title=get_title(soup),
+                author=get_author(soup),
+                rating=get_rating(soup),
+                rating_count=get_rating_count(soup),
+                review_count=get_review_count(soup),
+                description=get_description(soup),
+                url=url,
+            )
+        except (httpx.ReadTimeout, AttributeError) as e:
+            print(f"Error parsing book {url}: {str(e)}")
 
 async def run_scraper(url_list: list[str]) -> list[Book]:
     async with httpx.AsyncClient() as session:
