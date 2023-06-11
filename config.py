@@ -10,16 +10,19 @@ class Config:
     DATA_PATH = DATA_DIR / "books.jsonl"
     INDEX_DIR = ROOT_DIR / "index"
 
-    # Number of pages to scrape from the website
+    # Scraping config
     MAX_NUM_PAGES = 5
+    MAX_RETRIES = 3
+    RATE_LIMIT = 20  # requests per second
 
-    # Logging level
-    LOGGING_LEVEL = "DEBUG"
-
-    # Search engine config
+    # Neural search engine config
     MODEL_NAME = "all-MiniLM-L6-v2"
     VECTOR_SIZE = 384
     METRIC = "angular"
+    N_TREES = 5
+
+    # Logging level
+    LOGGING_LEVEL = "INFO"
 
     logging.basicConfig(
         level=LOGGING_LEVEL,
@@ -27,6 +30,8 @@ class Config:
         datefmt="%m/%d/%Y %H:%M:%S",
     )
 
+    def get(self, key: str):
+        return getattr(self, key)
 
-# The only config is a debug config for now
+
 config = Config()

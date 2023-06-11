@@ -122,9 +122,12 @@ class AnnoyIndexer(BaseIndexer):
         shutil.rmtree(index_dir)
 
 
-if __name__ == "__main__":
-    # indexer = WhooshIndexer()
-    # indexer.create_index(Path("data/books.jsonl"), Path("index"))
+def create_indexes(config):
+    whoosh = WhooshIndexer()
+    whoosh.create_index(config.get("DATA_PATH"), config.get("INDEX_DIR"))
 
-    indexer = AnnoyIndexer(vector_size=384, n_trees=5)
-    indexer.create_index(Path("data/books.jsonl"), Path("index"))
+    annoy = AnnoyIndexer(config.get("N_TREES"), config.get("VECTOR_SIZE"), config.get("METRIC"))
+    annoy.create_index(config.get("DATA_PATH"), config.get("INDEX_DIR"))
+
+    logger.info("Indexes created successfully")
+

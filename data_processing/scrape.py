@@ -12,14 +12,12 @@ from aiolimiter import AsyncLimiter
 from bs4 import BeautifulSoup, Tag
 from rich import print
 
-from config import config
+from config import Config
 
 logger = logging.getLogger("Scraping")
 
-MAX_RETRIES = 2
 BOOK_PAGE_URL = "https://www.goodreads.com/"
 BOOK_LIST_URL = "https://www.goodreads.com/list/show/1.Best_Books_Ever?page="
-DATA_PATH = config.DATA_PATH
 
 
 @dataclass
@@ -77,9 +75,9 @@ def get_book_urls(limit: int) -> list[str]:
     return url_list
 
 
-async def get_book_data(client: httpx.AsyncClient, url: str, limiter: AsyncLimiter) -> Book:
+async def get_book_data(client: httpx.AsyncClient, url: str, limiter: AsyncLimiter, config: Config) -> Book:
     async with limiter:
-        for _ in range(MAX_RETRIES):
+        for _ in range(config.get("MAX_RETRIES")):
             try:
                 response = await client.get(url, timeout=10)
                 soup = BeautifulSoup(response.text, "html.parser")
@@ -97,15 +95,17 @@ async def get_book_data(client: httpx.AsyncClient, url: str, limiter: AsyncLimit
                 print(f"Error parsing book {url}: {str(e)}")
 
 
-async def run_scraper(url_list: set[str]) -> list[Book]:
-    limiter = AsyncLimiter(max_rate=50, time_period=1)
+async def run_scraper(url_list: set[str], config: Config) -> list[Book]:
+    limiter = AsyncLimiter(max_rate=config.get("RATE_LIMIT"), time_period=1)
     async with httpx.AsyncClient() as client:
-        tasks = [get_book_data(client, url, limiter) for url in url_list]
+        tasks = [get_book_data(client, url, limiter, config) for url in url_list]
         results = await asyncio.gather(*tasks)
         return [result for result in results if result is not None]
 
 
-def main():
+def run_scraping(config):
+    DATA_PATH = config.get("DATA_PATH")
+
     existing_books = set()
 
     # Check if the books.jsonl file exists
@@ -117,12 +117,12 @@ def main():
     print(f"Found {len(existing_books)} existing books")
 
     # Get the book urls
-    book_list = set(get_book_urls(config.MAX_NUM_PAGES))
+    book_list = set(get_book_urls(config.get("MAX_NUM_PAGES")))
     book_list -= existing_books
     print(f"Scraping {len(book_list)} books")
 
     # Scrape the book data
-    books = asyncio.run(run_scraper(book_list))
+    books = asyncio.run(run_scraper(book_list, config))
     print(f"Scraped {len(books)} books")
     print(f"Scraping success rate: {len(books) / len(book_list):.2%}")
 
@@ -133,5 +133,3 @@ def main():
             f.write(json.dumps(asdict(book)) + "\n")
 
 
-if __name__ == "__main__":
-    main()
