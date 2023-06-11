@@ -13,7 +13,7 @@ from whoosh.qparser import QueryParser  # type: ignore
 
 from flask.config import Config
 
-logger = getLogger(__name__)
+logger = getLogger("Searcher")
 
 
 class BaseSearcher(ABC):

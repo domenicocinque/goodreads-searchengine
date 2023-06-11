@@ -13,8 +13,6 @@ def index():
         query = request.form["query"]
         search_engine = request.form["search_engine"]
 
-        print(type(current_app.config))
-
         se = get_search_engine(
             searcher=search_engine,
             config=current_app.config,

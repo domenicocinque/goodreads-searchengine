@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="static/style.css">
     <title>Book Search Engine</title>
 </head>
 <body>
@@ -14,17 +14,13 @@
             <input type="text" name="query" placeholder="Enter a book title or author">
             <input type="submit" value="Search">
 
-            <label for="search_engine">Search Engine:</label>
             <select id="search_engine" name="search_engine">
-              <option value="whoosh">Whoosh</option>
-              <option value="annoy">Annoy</option>
+              <option value="whoosh">Classic search</option>
+              <option value="annoy">Neural search</option>
             </select>
 
         </form>
-    <!-- gray hline here -->
     <hr>
-    <!-- For each result show title on top, authors with a smaller font under the title
-         a gray line is present between each result -->
     {% for result in results %}
         <div class="result">
             <span><strong>{{ result.title }}</strong> </span> <br>
