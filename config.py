@@ -1,20 +1,37 @@
+import logging
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent
 
-# Path to the data directory
-DATA_DIR = ROOT_DIR / "data"
+class Config:
+    ROOT_DIR = Path(__file__).resolve().parent
 
-# Number of pages to scrape from the website
-MAX_NUM_PAGES = 5
+    # Directories
+    DATA_DIR = ROOT_DIR / "data"
+    DATA_PATH = DATA_DIR / "books.jsonl"
+    INDEX_DIR = ROOT_DIR / "index"
 
-# Path to the index directory
-INDEX_DIR = DATA_DIR / "index"
+    # Scraping config
+    MAX_NUM_PAGES = 5
+    MAX_RETRIES = 3
+    RATE_LIMIT = 20  # requests per second
 
-# Name of the data files
-RAW_HTML_DIR = DATA_DIR / "raw_html"
-BOOK_LIST_FILENAME = "data_list.csv"
-BOOK_DATA_FILENAME = "books.csv"
+    # Neural search engine config
+    MODEL_NAME = "all-MiniLM-L6-v2"
+    VECTOR_SIZE = 384
+    METRIC = "angular"
+    N_TREES = 5
 
-# Logging level
-LOGGING_LEVEL = "DEBUG"
+    # Logging level
+    LOGGING_LEVEL = "INFO"
+
+    logging.basicConfig(
+        level=LOGGING_LEVEL,
+        format="%(name)s | %(levelname)-8s | %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+    )
+
+    def get(self, key: str):
+        return getattr(self, key)
+
+
+config = Config()
