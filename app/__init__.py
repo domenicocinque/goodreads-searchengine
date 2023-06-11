@@ -13,12 +13,11 @@ def index():
         query = request.form["query"]
         search_engine = request.form["search_engine"]
 
+        print(type(current_app.config))
+
         se = get_search_engine(
-            index_dir=current_app.config.get("INDEX_DIR"),
-            data_path=current_app.config.get("DATA_PATH"),
             searcher=search_engine,
-            vector_size=current_app.config.get("VECTOR_SIZE"),
-            metric=current_app.config.get("METRIC"),
+            config=current_app.config,
         )
         results = se.search(query=query)
         return render_template("index.html", results=results)

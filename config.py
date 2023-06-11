@@ -7,7 +7,7 @@ class Config:
 
     # Directories
     DATA_DIR = ROOT_DIR / "data"
-    DATA_PATH = DATA_DIR / "data.jsonl"
+    DATA_PATH = DATA_DIR / "books.jsonl"
     INDEX_DIR = ROOT_DIR / "index"
 
     # Number of pages to scrape from the website

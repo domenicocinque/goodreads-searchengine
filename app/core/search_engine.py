@@ -11,7 +11,7 @@ from whoosh.fields import ID, NUMERIC, TEXT, Schema  # type: ignore
 from whoosh.index import Index, create_in, open_dir  # type: ignore
 from whoosh.qparser import QueryParser  # type: ignore
 
-from config import Config
+from flask.config import Config
 
 logger = getLogger(__name__)
 
@@ -94,16 +94,16 @@ class AnnoySearcher(BaseSearcher):
 
 
 def get_search_engine(searcher: Literal["whoosh", "annoy"], config: Config) -> BaseSearcher:
-    index_dir = Path(config.INDEX_DIR)
-    data_path = Path(config.DATA_PATH)
+    index_dir = Path(config.get("INDEX_DIR"))
+    data_path = Path(config.get("DATA_PATH"))
     if searcher == "whoosh":
         return WhooshSearcher(index_dir=index_dir, data_path=data_path)
     elif searcher == "annoy":
         return AnnoySearcher(
             index_dir=index_dir / "index.ann",
             data_path=data_path,
-            vector_size=config.VECTOR_SIZE,
-            metric=config.METRIC,
+            vector_size=config.get("VECTOR_SIZE"),
+            metric=config.get("METRIC")
         )
     else:
         raise ValueError(f"Unknown searcher {searcher}")
