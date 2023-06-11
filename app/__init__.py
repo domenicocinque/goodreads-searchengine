@@ -18,7 +18,7 @@ def index():
             data_path=current_app.config.get("DATA_PATH"),
             searcher=search_engine,
             vector_size=current_app.config.get("VECTOR_SIZE"),
-            metric=current_app.config.get("METRIC")
+            metric=current_app.config.get("METRIC"),
         )
         results = se.search(query=query)
         return render_template("index.html", results=results)

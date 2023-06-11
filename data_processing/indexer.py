@@ -1,18 +1,17 @@
+import json
 import shutil
 from abc import ABC, abstractmethod
 from logging import getLogger
 from pathlib import Path
-import json
 from typing import Literal
-from tqdm import tqdm
 
 from annoy import AnnoyIndex  # type: ignore
+from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 from whoosh.analysis import StemmingAnalyzer  # type: ignore
 from whoosh.fields import ID, NUMERIC, TEXT, Schema  # type: ignore
 from whoosh.index import create_in, open_dir  # type: ignore
 from whoosh.qparser import QueryParser  # type: ignore
-
-from sentence_transformers import SentenceTransformer
 
 from config import config
 
@@ -53,7 +52,7 @@ class WhooshIndexer(BaseIndexer):
 
         # Read the JSON Lines file
         with index.writer() as writer:
-            with open(data_path, 'r') as file:
+            with open(data_path) as file:
                 for line in file:
                     item = json.loads(line)
                     if "description" in item and item["description"]:
@@ -83,7 +82,10 @@ class AnnoyIndexer(BaseIndexer):
     """
 
     def __init__(
-            self, n_trees: int = 100, vector_size: int = 384, metric: Literal["angular", "euclidean"] = "angular"
+        self,
+        n_trees: int = 100,
+        vector_size: int = 384,
+        metric: Literal["angular", "euclidean"] = "angular",
     ) -> None:
         super().__init__()
         self.n_trees = n_trees
@@ -96,16 +98,16 @@ class AnnoyIndexer(BaseIndexer):
         index = AnnoyIndex(self.vector_size, self.metric)
 
         # Read the JSON Lines file
-        docs = {'id': [], 'content': []}
-        with open(data_path, 'r') as file:
+        docs = {"id": [], "content": []}
+        with open(data_path) as file:
             for line in file:
                 item = json.loads(line)
                 if "description" in item and item["description"]:
-                    docs['id'].append(item['id'])
-                    docs['content'].append(item['title'] + " " + item['description'])
+                    docs["id"].append(item["id"])
+                    docs["content"].append(item["title"] + " " + item["description"])
 
         logger.info(f"Encoding {len(docs)} documents")
-        embeddings = self.model.encode(docs['content'], show_progress_bar=True)
+        embeddings = self.model.encode(docs["content"], show_progress_bar=True)
 
         for i, vector in tqdm(enumerate(embeddings), total=len(embeddings)):
             index.add_item(i, vector)
@@ -126,4 +128,3 @@ if __name__ == "__main__":
 
     indexer = AnnoyIndexer(vector_size=384, n_trees=5)
     indexer.create_index(Path("data/books.jsonl"), Path("index"))
-

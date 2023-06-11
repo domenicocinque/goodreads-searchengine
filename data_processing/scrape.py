@@ -8,9 +8,9 @@ from typing import Optional
 from urllib.parse import urljoin
 
 import httpx
+from aiolimiter import AsyncLimiter
 from bs4 import BeautifulSoup, Tag
 from rich import print
-from aiolimiter import AsyncLimiter
 
 logger = logging.getLogger("Scraping")
 
