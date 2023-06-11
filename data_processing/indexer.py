@@ -2,13 +2,19 @@ import shutil
 from abc import ABC, abstractmethod
 from logging import getLogger
 from pathlib import Path
+import json
+from typing import Literal
+from tqdm import tqdm
 
-import pandas as pd
 from annoy import AnnoyIndex  # type: ignore
 from whoosh.analysis import StemmingAnalyzer  # type: ignore
 from whoosh.fields import ID, NUMERIC, TEXT, Schema  # type: ignore
 from whoosh.index import create_in, open_dir  # type: ignore
 from whoosh.qparser import QueryParser  # type: ignore
+
+from sentence_transformers import SentenceTransformer
+
+from config import config
 
 logger = getLogger("Indexer")
 
@@ -28,17 +34,13 @@ class BaseIndexer(ABC):
 class WhooshIndexer(BaseIndexer):
     """Indexer using Whoosh."""
 
-    # TODO: Probably it is better to store only
-    # the fields that are needed for the search
-    # while the rest of the data can be stored in a separate file
-    # and loaded when needed.
     schema = Schema(
         id=ID(stored=True),
         title=TEXT(stored=True),
-        author=TEXT(stored=True),
-        rating=NUMERIC(stored=True),
-        rating_count=NUMERIC(stored=True),
-        review_count=NUMERIC(stored=True),
+        author=TEXT(stored=False),
+        rating=NUMERIC(stored=False),
+        rating_count=NUMERIC(stored=False),
+        review_count=NUMERIC(stored=False),
         description=TEXT(stored=True, analyzer=StemmingAnalyzer()),
     )
 
@@ -48,19 +50,22 @@ class WhooshIndexer(BaseIndexer):
         index = create_in(index_dir, self.schema)
 
         logger.info(f"Indexing data from {data_path}")
-        df = pd.read_csv(data_path)
+
+        # Read the JSON Lines file
         with index.writer() as writer:
-            for _, row in df.iterrows():
-                if not pd.isna(row["description"]):
-                    writer.add_document(
-                        id=str(row["id"]),
-                        title=row["title"],
-                        author=row["author"],
-                        rating=row["rating"],
-                        rating_count=row["rating_count"],
-                        review_count=row["review_count"],
-                        description=row["description"],
-                    )
+            with open(data_path, 'r') as file:
+                for line in file:
+                    item = json.loads(line)
+                    if "description" in item and item["description"]:
+                        writer.add_document(
+                            id=str(item["id"]),
+                            title=item["title"],
+                            author=item["author"],
+                            rating=item["rating"],
+                            rating_count=item["rating_count"],
+                            review_count=item["review_count"],
+                            description=item["description"],
+                        )
 
     def clear_index(self, index_dir: Path) -> None:
         """Clears the index directory."""
@@ -78,22 +83,36 @@ class AnnoyIndexer(BaseIndexer):
     """
 
     def __init__(
-        self, n_trees: int = 100, vector_size: int = 128, metric: str = "angular"
+            self, n_trees: int = 100, vector_size: int = 384, metric: Literal["angular", "euclidean"] = "angular"
     ) -> None:
         super().__init__()
         self.n_trees = n_trees
         self.vector_size = vector_size
         self.metric = metric
+        self.model = SentenceTransformer(config.get("MODEL_NAME"))
 
     def create_index(self, data_path: Path, index_dir: Path) -> None:
         logger.info(f"Creating new index in {index_dir}")
-        df = pd.read_csv(data_path)
         index = AnnoyIndex(self.vector_size, self.metric)
-        for _, row in df.iterrows():
-            if not pd.isna(row["description"]):
-                print(row["id"])
-                index.add_item(row["id"], row["description"])
+
+        # Read the JSON Lines file
+        docs = {'id': [], 'content': []}
+        with open(data_path, 'r') as file:
+            for line in file:
+                item = json.loads(line)
+                if "description" in item and item["description"]:
+                    docs['id'].append(item['id'])
+                    docs['content'].append(item['title'] + " " + item['description'])
+
+        logger.info(f"Encoding {len(docs)} documents")
+        embeddings = self.model.encode(docs['content'], show_progress_bar=True)
+
+        for i, vector in tqdm(enumerate(embeddings), total=len(embeddings)):
+            index.add_item(i, vector)
+
+        logger.info(f"Building index with {self.n_trees} trees")
         index.build(self.n_trees)
+        index.save(str(index_dir / "index.ann"))
 
     def clear_index(self, index_dir: Path) -> None:
         """Clears the index directory."""
@@ -102,5 +121,9 @@ class AnnoyIndexer(BaseIndexer):
 
 
 if __name__ == "__main__":
-    indexer = AnnoyIndexer(Path("index"))
-    indexer.create_index(Path("data/books.csv"), Path("index/books.ann"))
+    # indexer = WhooshIndexer()
+    # indexer.create_index(Path("data/books.jsonl"), Path("index"))
+
+    indexer = AnnoyIndexer(vector_size=384, n_trees=5)
+    indexer.create_index(Path("data/books.jsonl"), Path("index"))
+

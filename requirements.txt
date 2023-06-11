@@ -1,5 +1,10 @@
+aiolimiter==1.1.0
+annoy==1.17.2
 beautifulsoup4==4.10.0
 Flask==2.2.3
-pandas==2.0.0
+httpx==0.24.1
+rich==13.4.1
+sentence_transformers==2.2.2
+torch==2.0.1
 tqdm==4.65.0
 Whoosh==2.7.4

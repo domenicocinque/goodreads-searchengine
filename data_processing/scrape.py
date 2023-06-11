@@ -8,15 +8,16 @@ from typing import Optional
 from urllib.parse import urljoin
 
 import httpx
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, Tag
 from rich import print
+from aiolimiter import AsyncLimiter
 
 logger = logging.getLogger("Scraping")
 
-MAX_RETRIES = 5
+MAX_RETRIES = 2
 BOOK_PAGE_URL = "https://www.goodreads.com/"
 BOOK_LIST_URL = "https://www.goodreads.com/list/show/1.Best_Books_Ever?page="
-DATA_PATH = Path(__file__).parent.parent / "data" / "books.json"
+DATA_PATH = Path(__file__).parent.parent / "data" / "books.jsonl"
 
 
 @dataclass
@@ -36,7 +37,7 @@ def get_title(soup: BeautifulSoup) -> Optional[str]:
 
 
 def get_author(soup: BeautifulSoup) -> Optional[str]:
-    author_element = soup.find("span", {"class": "ContributorLink__name"}).text.strip()
+    return soup.find("span", {"class": "ContributorLink__name"}).text.strip()
 
 
 def get_description(soup: BeautifulSoup) -> Optional[str]:
@@ -49,7 +50,7 @@ def get_rating(soup: BeautifulSoup) -> Optional[float]:
     return float(soup.find("div", {"class": "RatingStatistics__rating"}).text.strip())
 
 
-def parse_count(element: Tag | NavigableString) -> int:
+def parse_count(element: Optional[Tag]) -> Optional[int]:
     return int(element.text.replace("\xa0", " ").split(" ")[0].replace(",", "").strip())
 
 
@@ -74,27 +75,30 @@ def get_book_urls(limit: int) -> list[str]:
     return url_list
 
 
-async def get_book_data(session: httpx.Client, url: str) -> Book:
-    for _ in range(MAX_RETRIES):
-        try:
-            response = await session.get(url, timeout=10)
-            soup = BeautifulSoup(response.text, "html.parser")
-            return Book(
-                id=int(re.search(r"\d+", url).group()),
-                title=get_title(soup),
-                author=get_author(soup),
-                rating=get_rating(soup),
-                rating_count=get_rating_count(soup),
-                review_count=get_review_count(soup),
-                description=get_description(soup),
-                url=url,
-            )
-        except (httpx.ReadTimeout, AttributeError) as e:
-            print(f"Error parsing book {url}: {str(e)}")
+async def get_book_data(client: httpx.AsyncClient, url: str, limiter: AsyncLimiter) -> Book:
+    async with limiter:
+        for _ in range(MAX_RETRIES):
+            try:
+                response = await client.get(url, timeout=10)
+                soup = BeautifulSoup(response.text, "html.parser")
+                return Book(
+                    id=int(re.search(r"\d+", url).group()),
+                    title=get_title(soup),
+                    author=get_author(soup),
+                    rating=get_rating(soup),
+                    rating_count=get_rating_count(soup),
+                    review_count=get_review_count(soup),
+                    description=get_description(soup),
+                    url=url,
+                )
+            except (httpx.ReadTimeout, AttributeError) as e:
+                print(f"Error parsing book {url}: {str(e)}")
 
-async def run_scraper(url_list: list[str]) -> list[Book]:
-    async with httpx.AsyncClient() as session:
-        tasks = [get_book_data(session, url) for url in url_list]
+
+async def run_scraper(url_list: set[str]) -> list[Book]:
+    limiter = AsyncLimiter(max_rate=50, time_period=1)
+    async with httpx.AsyncClient() as client:
+        tasks = [get_book_data(client, url, limiter) for url in url_list]
         results = await asyncio.gather(*tasks)
         return [result for result in results if result is not None]
 
@@ -102,7 +106,7 @@ async def run_scraper(url_list: list[str]) -> list[Book]:
 def main():
     existing_books = set()
 
-    # Check if the books.json file exists
+    # Check if the books.jsonl file exists
     if DATA_PATH.exists():
         with open(DATA_PATH) as f:
             for line in f:
@@ -118,8 +122,10 @@ def main():
     # Scrape the book data
     books = asyncio.run(run_scraper(book_list))
     print(f"Scraped {len(books)} books")
+    print(f"Scraping success rate: {len(books) / len(book_list):.2%}")
 
     # Append the new books to the existing ones
+
     with open(DATA_PATH, "a") as f:
         for book in books:
             f.write(json.dumps(asdict(book)) + "\n")

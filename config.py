@@ -5,22 +5,21 @@ from pathlib import Path
 class Config:
     ROOT_DIR = Path(__file__).resolve().parent
 
-    # Path to the data directory
+    # Directories
     DATA_DIR = ROOT_DIR / "data"
+    DATA_PATH = DATA_DIR / "data.jsonl"
+    INDEX_DIR = ROOT_DIR / "index"
 
     # Number of pages to scrape from the website
     MAX_NUM_PAGES = 5
 
-    # Path to the index directory
-    INDEX_DIR = DATA_DIR / "index"
-
-    # Name of the data files
-    RAW_HTML_DIR = DATA_DIR / "raw_html"
-    BOOK_LIST_FILENAME = "data_list.csv"
-    BOOK_DATA_FILENAME = "books.csv"
-
     # Logging level
     LOGGING_LEVEL = "DEBUG"
+
+    # Search engine config
+    MODEL_NAME = "all-MiniLM-L6-v2"
+    VECTOR_SIZE = 384
+    METRIC = "angular"
 
     logging.basicConfig(
         level=LOGGING_LEVEL,
@@ -30,5 +29,4 @@ class Config:
 
 
 # The only config is a debug config for now
-# TODO: Add a production config
 config = Config()
